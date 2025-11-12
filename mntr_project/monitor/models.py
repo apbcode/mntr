@@ -3,16 +3,19 @@ from django.contrib.auth.models import User
 
 class MonitoredPage(models.Model):
     FREQUENCY_UNITS = (
-        ('min', 'Minutes'),
+        ('minute', 'Minutes'),
+        ('hour', 'Hours'),
         ('day', 'Days'),
+        ('week', 'Weeks'),
         ('month', 'Months'),
+        ('year', 'Years'),
     )
 
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     name = models.CharField(max_length=255)
     url = models.URLField(max_length=2000)
     frequency_number = models.PositiveIntegerField()
-    frequency_unit = models.CharField(max_length=5, choices=FREQUENCY_UNITS)
+    frequency_unit = models.CharField(max_length=10, choices=FREQUENCY_UNITS)
     last_checked = models.DateTimeField(null=True, blank=True)
     last_content = models.TextField(blank=True)
     has_changed = models.BooleanField(default=False)

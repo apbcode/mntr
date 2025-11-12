@@ -1,7 +1,7 @@
 from django.test import TestCase
 from django.contrib.auth.models import User
 from .models import MonitoredPage, NotificationSettings
-from .tasks import check_page_task
+from .tasks import check_page
 from unittest.mock import patch, MagicMock
 
 class MonitoredPageModelTest(TestCase):
@@ -49,7 +49,7 @@ class CheckPageTaskTest(TestCase):
         mock_response.text = '<html><body><h1>New Content</h1></body></html>'
         mock_get.return_value = mock_response
 
-        result = check_page_task(self.page.id)
+        result = check_page(self.page.id)
         self.page.refresh_from_db()
 
         self.assertEqual(result, 'Successfully checked "Example"')
@@ -63,7 +63,7 @@ class CheckPageTaskTest(TestCase):
         mock_response.text = '<html><body><h1>Old Content</h1></body></html>'
         mock_get.return_value = mock_response
 
-        result = check_page_task(self.page.id)
+        result = check_page(self.page.id)
         self.page.refresh_from_db()
 
         self.assertEqual(result, 'Successfully checked "Example"')
