@@ -2,6 +2,7 @@ from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from .models import NotificationSettings
 import requests
+import os
 
 def send_notification(page, diff):
     user = page.user
@@ -40,9 +41,18 @@ def send_notification(page, diff):
             }
             requests.post(settings.slack_webhook_url, json=payload)
         elif settings.notification_type == 'telegram' and settings.telegram_chat_id:
-            # Note: This requires a Telegram bot token, which is not stored in the database.
-            # This implementation assumes the token is stored in an environment variable.
-            # For now, I'll leave this as a placeholder.
-            pass
+            token = os.environ.get('TELEGRAM_BOT_TOKEN')
+            if token:
+                url = f"https://api.telegram.org/bot{token}/sendMessage"
+                # Telegram's MarkdownV2 parser is very strict. We'll escape the diff.
+                escaped_diff = diff.replace('.', '\\.').replace('-', '\\-').replace('+', '\\+').replace('=', '\\=').replace('`', '\\`')
+                text = f'*Page Change Detected: {page.name}*\\n\\n`{escaped_diff}`'
+
+                payload = {
+                    'chat_id': settings.telegram_chat_id,
+                    'text': text,
+                    'parse_mode': 'MarkdownV2'
+                }
+                requests.post(url, json=payload)
     except NotificationSettings.DoesNotExist:
         pass

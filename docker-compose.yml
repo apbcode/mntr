@@ -1,0 +1,35 @@
+services:
+  web:
+    build: .
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./mntr_project:/app
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./mntr_project/.env
+    depends_on:
+      - redis
+
+  redis:
+    image: "redis:alpine"
+
+  worker:
+    build: .
+    command: celery -A mntr_project worker -l info
+    volumes:
+      - ./mntr_project:/app
+    env_file:
+      - ./mntr_project/.env
+    depends_on:
+      - redis
+
+  beat:
+    build: .
+    command: celery -A mntr_project beat -l info
+    volumes:
+      - ./mntr_project:/app
+    env_file:
+      - ./mntr_project/.env
+    depends_on:
+      - redis
