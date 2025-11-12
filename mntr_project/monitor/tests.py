@@ -1,0 +1,71 @@
+from django.test import TestCase
+from django.contrib.auth.models import User
+from .models import MonitoredPage, NotificationSettings
+from .tasks import check_page_task
+from unittest.mock import patch, MagicMock
+
+class MonitoredPageModelTest(TestCase):
+
+    def setUp(self):
+        self.user = User.objects.create_user('testuser', 'test@example.com', 'password')
+        self.page = MonitoredPage.objects.create(
+            user=self.user,
+            name='Example',
+            url='http://example.com',
+            frequency_number=5,
+            frequency_unit='min'
+        )
+
+    def test_monitored_page_creation(self):
+        self.assertEqual(self.page.name, 'Example')
+        self.assertEqual(self.page.url, 'http://example.com')
+        self.assertEqual(self.page.frequency_number, 5)
+        self.assertEqual(self.page.frequency_unit, 'min')
+        self.assertEqual(self.page.user, self.user)
+        self.assertFalse(self.page.has_changed)
+
+class CheckPageTaskTest(TestCase):
+
+    def setUp(self):
+        self.user = User.objects.create_user('testuser', 'test@example.com', 'password')
+        self.page = MonitoredPage.objects.create(
+            user=self.user,
+            name='Example',
+            url='http://example.com',
+            frequency_number=5,
+            frequency_unit='min',
+            last_content='<html><body><h1>Old Content</h1></body></html>'
+        )
+        NotificationSettings.objects.create(
+            user=self.user,
+            notification_type='email',
+            email_address='test@example.com'
+        )
+
+    @patch('monitor.tasks.requests.get')
+    def test_check_page_task_with_change(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = '<html><body><h1>New Content</h1></body></html>'
+        mock_get.return_value = mock_response
+
+        result = check_page_task(self.page.id)
+        self.page.refresh_from_db()
+
+        self.assertEqual(result, 'Successfully checked "Example"')
+        self.assertTrue(self.page.has_changed)
+        self.assertEqual(self.page.last_content, '<html><body><h1>New Content</h1></body></html>')
+
+    @patch('monitor.tasks.requests.get')
+    def test_check_page_task_no_change(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = '<html><body><h1>Old Content</h1></body></html>'
+        mock_get.return_value = mock_response
+
+        result = check_page_task(self.page.id)
+        self.page.refresh_from_db()
+
+        self.assertEqual(result, 'Successfully checked "Example"')
+        self.assertFalse(self.page.has_changed)
+        self.assertEqual(self.page.last_content, '<html><body><h1>Old Content</h1></body></html>')

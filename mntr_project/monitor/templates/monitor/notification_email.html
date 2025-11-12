@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Page Change Detected</title>
+</head>
+<body>
+    <h1>Page Change Detected: {{ page.name }}</h1>
+    <p>The page at <a href="{{ page.url }}">{{ page.url }}</a> has changed.</p>
+    <h2>Changes:</h2>
+    <pre><code>{{ diff }}</code></pre>
+</body>
+</html>
