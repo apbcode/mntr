@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>mntr</title>
+</head>
+<body>
+    <nav>
+        <a href="{% url 'monitoredpage_list' %}">My Pages</a> |
+        <a href="{% url 'notificationsettings_update' %}">Settings</a> |
+        <a href="{% url 'logout' %}">Logout</a>
+    </nav>
+    <hr>
+    {% block content %}{% endblock %}
+</body>
+</html>

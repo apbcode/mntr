@@ -1,0 +1,10 @@
+{% extends 'monitor/base.html' %}
+
+{% block content %}
+    <h1>Notification Settings</h1>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Save</button>
+    </form>
+{% endblock %}

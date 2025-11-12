@@ -1,0 +1,13 @@
+{% extends 'monitor/base.html' %}
+
+{% block content %}
+    <h1>{{ object.name }}</h1>
+    <p>URL: <a href="{{ object.url }}">{{ object.url }}</a></p>
+    <p>Frequency: {{ object.frequency_number }} {{ object.get_frequency_unit_display }}</p>
+    <p>Last Checked: {{ object.last_checked }}</p>
+
+    {% if object.has_changed %}
+        <h2>Changes:</h2>
+        <pre><code>{{ diff }}</code></pre>
+    {% endif %}
+{% endblock %}

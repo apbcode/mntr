@@ -1,0 +1,16 @@
+{% extends 'monitor/base.html' %}
+
+{% block content %}
+    <h1>My Monitored Pages</h1>
+    <a href="{% url 'monitoredpage_create' %}">Add New Page</a>
+    <ul>
+        {% for page in object_list %}
+            <li>
+                <a href="{% url 'monitoredpage_detail' page.pk %}">{{ page.name }}</a>
+                {% if page.has_changed %}
+                    <strong>(Changed)</strong>
+                {% endif %}
+            </li>
+        {% endfor %}
+    </ul>
+{% endblock %}
