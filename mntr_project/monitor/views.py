@@ -39,13 +39,17 @@ class MonitoredPageDetailView(LoginRequiredMixin, DetailView):
                 response = requests.get(page.url)
                 response.raise_for_status()
                 current_content = response.text
-                diff = "".join(difflib.unified_diff(
-                    page.last_content.splitlines(keepends=True),
-                    current_content.splitlines(keepends=True),
-                    fromfile='old',
-                    tofile='new',
-                ))
+
+                # Generate HTML diff
+                d = difflib.HtmlDiff()
+                diff = d.make_table(page.last_content.splitlines(), current_content.splitlines(), fromdesc='Old Version', todesc='New Version')
                 context['diff'] = diff
+
+                # Mark as seen
+                page.last_content = current_content
+                page.has_changed = False
+                page.save()
+
             except requests.exceptions.RequestException as e:
                 context['diff'] = f"Error fetching current content: {e}"
         return context

@@ -6,8 +6,8 @@
     <p>Frequency: {{ object.frequency_number }} {{ object.get_frequency_unit_display }}</p>
     <p>Last Checked: {{ object.last_checked }}</p>
 
-    {% if object.has_changed %}
+    {% if diff %}
         <h2>Changes:</h2>
-        <pre><code>{{ diff }}</code></pre>
+        {{ diff|safe }}
     {% endif %}
 {% endblock %}
