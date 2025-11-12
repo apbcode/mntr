@@ -10,6 +10,10 @@
                 {% if page.has_changed %}
                     <strong>(Changed)</strong>
                 {% endif %}
+                <form action="{% url 'check_now' page.pk %}" method="post" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit">Check Now</button>
+                </form>
             </li>
         {% endfor %}
     </ul>

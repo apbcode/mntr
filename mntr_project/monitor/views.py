@@ -6,6 +6,9 @@ from .forms import MonitoredPageForm, NotificationSettingsForm
 from django.urls import reverse_lazy
 import difflib
 import requests
+from .tasks import check_page
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_POST
 
 class MonitoredPageListView(LoginRequiredMixin, ListView):
     model = MonitoredPage
@@ -57,3 +60,10 @@ class NotificationSettingsUpdateView(LoginRequiredMixin, UpdateView):
         # Create the settings object if it doesn't exist
         settings, created = NotificationSettings.objects.get_or_create(user=self.request.user)
         return settings
+
+@login_required
+@require_POST
+def check_now(request, pk):
+    page = get_object_or_404(MonitoredPage, pk=pk, user=request.user)
+    check_page.delay(page.id)
+    return redirect('monitoredpage_list')

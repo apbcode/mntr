@@ -7,7 +7,7 @@ from .notifications import send_notification
 from datetime import timedelta
 
 @shared_task
-def check_page_task(page_id):
+def check_page(page_id):
     try:
         page = MonitoredPage.objects.get(id=page_id)
         response = requests.get(page.url)
@@ -37,16 +37,23 @@ def check_all_pages():
     for page in MonitoredPage.objects.all():
         if page.last_checked:
             delta = timedelta()
-            if page.frequency_unit == 'min':
+            if page.frequency_unit == 'minute':
                 delta = timedelta(minutes=page.frequency_number)
+            elif page.frequency_unit == 'hour':
+                delta = timedelta(hours=page.frequency_number)
             elif page.frequency_unit == 'day':
                 delta = timedelta(days=page.frequency_number)
+            elif page.frequency_unit == 'week':
+                delta = timedelta(weeks=page.frequency_number)
             elif page.frequency_unit == 'month':
                 # This is a simplification, assuming 30 days per month
                 delta = timedelta(days=page.frequency_number * 30)
+            elif page.frequency_unit == 'year':
+                # This is a simplification, assuming 365 days per year
+                delta = timedelta(days=page.frequency_number * 365)
 
             if timezone.now() > page.last_checked + delta:
-                check_page_task.delay(page.id)
+                check_page.delay(page.id)
         else:
             # If the page has never been checked, check it now.
-            check_page_task.delay(page.id)
+            check_page.delay(page.id)
