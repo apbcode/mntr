@@ -1,5 +1,5 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from django.views.generic import ListView, CreateView, DetailView, UpdateView
+from django.views.generic import ListView, CreateView, DetailView, UpdateView, DeleteView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from .models import MonitoredPage, NotificationSettings
 from .forms import MonitoredPageForm, NotificationSettingsForm
@@ -31,6 +31,14 @@ class MonitoredPageUpdateView(LoginRequiredMixin, UpdateView):
     model = MonitoredPage
     form_class = MonitoredPageForm
     template_name = 'monitor/monitoredpage_form.html'
+    success_url = reverse_lazy('monitoredpage_list')
+
+    def get_queryset(self):
+        return MonitoredPage.objects.filter(user=self.request.user)
+
+class MonitoredPageDeleteView(LoginRequiredMixin, DeleteView):
+    model = MonitoredPage
+    template_name = 'monitor/monitoredpage_confirm_delete.html'
     success_url = reverse_lazy('monitoredpage_list')
 
     def get_queryset(self):
