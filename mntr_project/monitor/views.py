@@ -8,7 +8,7 @@ import requests
 from .tasks import check_page
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
-from htmldiffer import diff as htmldiff
+import htmldiffer
 from bs4 import BeautifulSoup
 
 class MonitoredPageListView(LoginRequiredMixin, ListView):
@@ -59,7 +59,7 @@ class MonitoredPageDetailView(LoginRequiredMixin, DetailView):
                 current_content = response.text
 
                 # Generate visual HTML diff
-                diff = htmldiff(page.last_content, current_content)
+                diff = htmldiffer.diff(page.last_content, current_content)
 
                 # Inject a <base> tag
                 soup = BeautifulSoup(diff, 'html.parser')

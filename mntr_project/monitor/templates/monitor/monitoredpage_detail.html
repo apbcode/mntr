@@ -11,7 +11,7 @@
         {% if is_error %}
             <p>{{ diff }}</p>
         {% else %}
-            <iframe srcdoc="{{ diff|escape }}" sandbox="allow-same-origin" style="width: 100%; height: 60vh; border: 1px solid #ccc;"></iframe>
+            <iframe srcdoc="{{ diff|safe }}" sandbox="allow-same-origin" style="width: 100%; height: 60vh; border: 1px solid #ccc;"></iframe>
         {% endif %}
     {% endif %}
 {% endblock %}
