@@ -8,7 +8,7 @@ import requests
 from .tasks import check_page
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
-from htmldiff import htmldiff
+from htmldiffer import diff as htmldiff
 from bs4 import BeautifulSoup
 
 class MonitoredPageListView(LoginRequiredMixin, ListView):
