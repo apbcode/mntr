@@ -1,4 +1,5 @@
 {% extends 'monitor/base.html' %}
+{% load monitor_extras %}
 
 {% block content %}
     <h1>{{ object.name }}</h1>
@@ -6,12 +7,15 @@
     <p>Frequency: {{ object.frequency_number }} {{ object.get_frequency_unit_display }}</p>
     <p>Last Checked: {{ object.last_checked }}</p>
 
-    {% if diff %}
+    {% if current_content %}
+        <h2>Changes:</h2>
+        <div style="border: 1px solid #ccc; padding: 10px;">
+            {{ object.last_content|htmldiff:current_content }}
+        </div>
+    {% elif diff %}
         <h2>Changes:</h2>
         {% if is_error %}
             <p>{{ diff }}</p>
-        {% else %}
-            <iframe srcdoc="{{ diff|safe }}" sandbox="allow-same-origin" style="width: 100%; height: 60vh; border: 1px solid #ccc;"></iframe>
         {% endif %}
     {% endif %}
 {% endblock %}
