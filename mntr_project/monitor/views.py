@@ -27,6 +27,15 @@ class MonitoredPageCreateView(LoginRequiredMixin, CreateView):
         form.instance.user = self.request.user
         return super().form_valid(form)
 
+class MonitoredPageUpdateView(LoginRequiredMixin, UpdateView):
+    model = MonitoredPage
+    form_class = MonitoredPageForm
+    template_name = 'monitor/monitoredpage_form.html'
+    success_url = reverse_lazy('monitoredpage_list')
+
+    def get_queryset(self):
+        return MonitoredPage.objects.filter(user=self.request.user)
+
 class MonitoredPageDetailView(LoginRequiredMixin, DetailView):
     model = MonitoredPage
     template_name = 'monitor/monitoredpage_detail.html'

@@ -14,6 +14,7 @@
                     {% csrf_token %}
                     <button type="submit">Check Now</button>
                 </form>
+                <a href="{% url 'monitoredpage_update' page.pk %}">Edit</a>
             </li>
         {% endfor %}
     </ul>
