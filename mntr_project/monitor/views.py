@@ -4,11 +4,12 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from .models import MonitoredPage, NotificationSettings
 from .forms import MonitoredPageForm, NotificationSettingsForm
 from django.urls import reverse_lazy
-import difflib
 import requests
 from .tasks import check_page
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
+from htmldiff import htmldiff
+from bs4 import BeautifulSoup
 
 class MonitoredPageListView(LoginRequiredMixin, ListView):
     model = MonitoredPage
@@ -57,10 +58,15 @@ class MonitoredPageDetailView(LoginRequiredMixin, DetailView):
                 response.raise_for_status()
                 current_content = response.text
 
-                # Generate HTML diff
-                d = difflib.HtmlDiff()
-                diff = d.make_table(page.last_content.splitlines(), current_content.splitlines(), fromdesc='Old Version', todesc='New Version')
-                context['diff'] = diff
+                # Generate visual HTML diff
+                diff = htmldiff(page.last_content, current_content)
+
+                # Inject a <base> tag
+                soup = BeautifulSoup(diff, 'html.parser')
+                base_tag = soup.new_tag('base', href=page.url)
+                if soup.head:
+                    soup.head.insert(0, base_tag)
+                context['diff'] = str(soup)
 
                 # Mark as seen
                 page.last_content = current_content
@@ -69,6 +75,7 @@ class MonitoredPageDetailView(LoginRequiredMixin, DetailView):
 
             except requests.exceptions.RequestException as e:
                 context['diff'] = f"Error fetching current content: {e}"
+                context['is_error'] = True
         return context
 
 class NotificationSettingsUpdateView(LoginRequiredMixin, UpdateView):

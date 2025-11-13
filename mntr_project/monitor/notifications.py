@@ -3,6 +3,12 @@ from django.template.loader import render_to_string
 from .models import NotificationSettings
 import requests
 import os
+import re
+
+def escape_markdown_v2(text):
+    # Escape all special characters for Telegram's MarkdownV2
+    escape_chars = r'_*[]()~`>#+-=|{}.!'
+    return re.sub(f'([{re.escape(escape_chars)}])', r'\\\1', text)
 
 def send_notification(page, diff):
     user = page.user
@@ -44,9 +50,9 @@ def send_notification(page, diff):
             token = os.environ.get('TELEGRAM_BOT_TOKEN')
             if token:
                 url = f"https://api.telegram.org/bot{token}/sendMessage"
-                # Telegram's MarkdownV2 parser is very strict. We'll escape the diff.
-                escaped_diff = diff.replace('.', '\\.').replace('-', '\\-').replace('+', '\\+').replace('=', '\\=').replace('`', '\\`')
-                text = f'*Page Change Detected: {page.name}*\\n\\n`{escaped_diff}`'
+                escaped_name = escape_markdown_v2(page.name)
+                escaped_diff = escape_markdown_v2(diff)
+                text = f'*Page Change Detected: {escaped_name}*\\n\\n`{escaped_diff}`'
 
                 payload = {
                     'chat_id': settings.telegram_chat_id,
