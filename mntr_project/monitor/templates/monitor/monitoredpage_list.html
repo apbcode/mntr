@@ -15,6 +15,7 @@
                     <button type="submit">Check Now</button>
                 </form>
                 <a href="{% url 'monitoredpage_update' page.pk %}">Edit</a>
+                <a href="{% url 'monitoredpage_delete' page.pk %}">Delete</a>
             </li>
         {% endfor %}
     </ul>
