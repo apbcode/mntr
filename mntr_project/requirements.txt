@@ -26,4 +26,9 @@ tzdata==2025.2
 urllib3==2.5.0
 vine==5.1.0
 wcwidth==0.2.14
+beautifulsoup4
+lxml
+html5lib
+htmldiff
+genshi
 python-dotenv==1.2.1
