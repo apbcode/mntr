@@ -29,6 +29,4 @@ wcwidth==0.2.14
 beautifulsoup4
 lxml
 html5lib
-htmldiff
-genshi
-python-dotenv==1.2.1
+htmldiffer

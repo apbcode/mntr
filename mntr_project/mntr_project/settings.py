@@ -9,8 +9,6 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
-from dotenv import load_dotenv
-load_dotenv()
 
 from pathlib import Path
 import os
@@ -28,7 +26,7 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-)u^r&dvr21p%lq
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DJANGO_DEBUG', '') != 'False'
 
-ALLOWED_HOSTS = [os.environ.get('ALLOWED_HOST_IP')]
+ALLOWED_HOSTS = []
 
 
 # Application definition
