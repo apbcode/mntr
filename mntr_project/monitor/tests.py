@@ -86,21 +86,12 @@ class MonitoredPageDetailViewTest(TestCase):
             has_changed=True
         )
 
-    @patch('monitor.views.requests.get')
-    def test_detail_view_marks_as_seen(self, mock_get):
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.text = '<html><body><h1>New Content</h1></body></html>'
-        mock_get.return_value = mock_response
-
+    def test_detail_view_does_not_mark_as_seen(self):
         response = self.client.get(reverse('monitoredpage_detail', args=[self.page.id]))
         self.page.refresh_from_db()
 
         self.assertEqual(response.status_code, 200)
-        self.assertFalse(self.page.has_changed)
-        self.assertEqual(self.page.last_content, '<html><body><h1>New Content</h1></body></html>')
-        self.assertContains(response, '<ins>')
-        self.assertContains(response, '<del>')
+        self.assertTrue(self.page.has_changed)
 
     def test_detail_view_no_change(self):
         self.page.has_changed = False
@@ -110,3 +101,19 @@ class MonitoredPageDetailViewTest(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, '<h2>Changes:</h2>')
+
+    @patch('monitor.views.requests.get')
+    def test_iframe_content_view_marks_as_seen(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = '<html><body><h1>New Content</h1></body></html>'
+        mock_get.return_value = mock_response
+
+        response = self.client.get(reverse('iframe_content', args=[self.page.id]))
+        self.page.refresh_from_db()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(self.page.has_changed)
+        self.assertEqual(self.page.last_content, '<html><body><h1>New Content</h1></body></html>')
+        self.assertContains(response, '<ins>')
+        self.assertContains(response, '<del>')

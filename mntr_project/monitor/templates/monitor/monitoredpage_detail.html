@@ -7,15 +7,13 @@
     <p>Frequency: {{ object.frequency_number }} {{ object.get_frequency_unit_display }}</p>
     <p>Last Checked: {{ object.last_checked }}</p>
 
-    {% if diff_content %}
+    {% if object.has_changed %}
         <h2>Changes:</h2>
-        <iframe srcdoc="{{ diff_content|safe }}" style="width: 100%; height: 500px; border: 1px solid #ccc;"></iframe>
+        <iframe src="{% url 'iframe_content' object.pk %}" style="width: 100%; height: 500px; border: 1px solid #ccc;"></iframe>
     {% elif diff %}
         <h2>Changes:</h2>
         {% if is_error %}
             <p>{{ diff }}</p>
-        {% else %}
-            <iframe srcdoc="{{ diff|safe }}" style="width: 100%; height: 500px; border: 1px solid #ccc;"></iframe>
         {% endif %}
     {% endif %}
 {% endblock %}
