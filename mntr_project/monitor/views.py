@@ -51,10 +51,24 @@ class MonitoredPageDetailView(LoginRequiredMixin, DetailView):
         context = super().get_context_data(**kwargs)
         page = self.get_object()
         if page.has_changed:
-            # The logic to fetch current_content and mark the page as "seen"
-            # is now handled by the iframe_content_view.
-            # We just need to ensure the template knows whether to display the iframe.
-            pass
+            try:
+                response = requests.get(page.url)
+                response.raise_for_status()
+                current_content = response.text
+
+                # Generate the diff using the custom template tag logic
+                from .templatetags.monitor_extras import htmldiff
+                diff_content = htmldiff(page.last_content, current_content)
+                context['diff_content'] = diff_content
+
+                # Mark as seen
+                page.last_content = current_content
+                page.has_changed = False
+                page.save()
+
+            except requests.exceptions.RequestException as e:
+                context['diff'] = f"Error fetching current content: {e}"
+                context['is_error'] = True
         return context
 
 class NotificationSettingsUpdateView(LoginRequiredMixin, UpdateView):
@@ -74,27 +88,3 @@ def check_now(request, pk):
     page = get_object_or_404(MonitoredPage, pk=pk, user=request.user)
     check_page.delay(page.id)
     return redirect('monitoredpage_list')
-
-
-@login_required
-def iframe_content_view(request, pk):
-    page = get_object_or_404(MonitoredPage, pk=pk, user=request.user)
-
-    try:
-        response = requests.get(page.url)
-        response.raise_for_status()
-        current_content = response.text
-
-        # Generate the diff using the custom template tag logic
-        from .templatetags.monitor_extras import htmldiff
-        diff_content = htmldiff(page.last_content, current_content)
-
-        # Mark as seen
-        page.last_content = current_content
-        page.has_changed = False
-        page.save()
-
-    except requests.exceptions.RequestException as e:
-        diff_content = f"Error fetching content: {e}"
-
-    return render(request, 'monitor/iframe_content.html', {'diff_content': diff_content})
