@@ -28,9 +28,6 @@ DEBUG = os.environ.get('DJANGO_DEBUG', '') != 'False'
 
 ALLOWED_HOSTS = [os.environ.get('ALLOWED_HOST_IP')]
 
-if DEBUG:
-    SECURE_CROSS_ORIGIN_OPENER_POLICY = None
-
 # Application definition
 
 INSTALLED_APPS = [
