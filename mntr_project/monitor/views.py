@@ -8,8 +8,6 @@ import requests
 from .tasks import check_page
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
-import htmldiffer
-from bs4 import BeautifulSoup
 
 class MonitoredPageListView(LoginRequiredMixin, ListView):
     model = MonitoredPage
@@ -58,15 +56,7 @@ class MonitoredPageDetailView(LoginRequiredMixin, DetailView):
                 response.raise_for_status()
                 current_content = response.text
 
-                # Generate visual HTML diff
-                diff = htmldiffer.diff(page.last_content, current_content)
-
-                # Inject a <base> tag
-                soup = BeautifulSoup(diff, 'html.parser')
-                base_tag = soup.new_tag('base', href=page.url)
-                if soup.head:
-                    soup.head.insert(0, base_tag)
-                context['diff'] = str(soup)
+                context['current_content'] = current_content
 
                 # Mark as seen
                 page.last_content = current_content

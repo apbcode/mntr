@@ -1,8 +1,9 @@
-from django.test import TestCase
+from django.test import TestCase, Client
 from django.contrib.auth.models import User
 from .models import MonitoredPage, NotificationSettings
 from .tasks import check_page
 from unittest.mock import patch, MagicMock
+from django.urls import reverse
 
 class MonitoredPageModelTest(TestCase):
 
@@ -69,3 +70,43 @@ class CheckPageTaskTest(TestCase):
         self.assertEqual(result, 'Successfully checked "Example"')
         self.assertFalse(self.page.has_changed)
         self.assertEqual(self.page.last_content, '<html><body><h1>Old Content</h1></body></html>')
+
+class MonitoredPageDetailViewTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user('testuser', 'test@example.com', 'password')
+        self.client = Client()
+        self.client.login(username='testuser', password='password')
+        self.page = MonitoredPage.objects.create(
+            user=self.user,
+            name='Example',
+            url='http://example.com',
+            frequency_number=5,
+            frequency_unit='min',
+            last_content='<html><body><h1>Old Content</h1></body></html>',
+            has_changed=True
+        )
+
+    @patch('monitor.views.requests.get')
+    def test_detail_view_marks_as_seen(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = '<html><body><h1>New Content</h1></body></html>'
+        mock_get.return_value = mock_response
+
+        response = self.client.get(reverse('monitoredpage_detail', args=[self.page.id]))
+        self.page.refresh_from_db()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(self.page.has_changed)
+        self.assertEqual(self.page.last_content, '<html><body><h1>New Content</h1></body></html>')
+        self.assertContains(response, '<ins>')
+        self.assertContains(response, '<del>')
+
+    def test_detail_view_no_change(self):
+        self.page.has_changed = False
+        self.page.save()
+
+        response = self.client.get(reverse('monitoredpage_detail', args=[self.page.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, '<h2>Changes:</h2>')
