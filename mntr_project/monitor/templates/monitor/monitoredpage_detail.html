@@ -14,6 +14,8 @@
         <h2>Changes:</h2>
         {% if is_error %}
             <p>{{ diff }}</p>
+        {% else %}
+            <iframe srcdoc="{{ diff|safe }}" style="width: 100%; height: 500px; border: 1px solid #ccc;"></iframe>
         {% endif %}
     {% endif %}
 {% endblock %}
