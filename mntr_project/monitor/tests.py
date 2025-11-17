@@ -4,6 +4,7 @@ from .models import MonitoredPage, NotificationSettings
 from .tasks import check_page
 from unittest.mock import patch, MagicMock
 from django.urls import reverse
+from .forms import MonitoredPageForm
 
 class MonitoredPageModelTest(TestCase):
 
@@ -73,53 +74,6 @@ class CheckPageTaskTest(TestCase):
         self.assertFalse(self.page.has_changed)
         self.assertEqual(self.page.snapshots.count(), 1)
 
-class MonitoredPageDetailViewTest(TestCase):
-    def setUp(self):
-        self.user = User.objects.create_user('testuser', 'test@example.com', 'password')
-        self.client = Client()
-        self.client.login(username='testuser', password='password')
-        self.page = MonitoredPage.objects.create(
-            user=self.user,
-            name='Example',
-            url='http://example.com',
-            frequency_number=5,
-            frequency_unit='min',
-            has_changed=True
-        )
-        # Create the first snapshot and set it as the last seen one.
-        first_snapshot = self.page.snapshots.create(content='<html><body><h1>Old Content</h1></body></html>')
-        self.page.last_seen_snapshot = first_snapshot
-        self.page.save()
-
-        # Create the second snapshot, which represents the new content.
-        self.page.snapshots.create(content='<html><body><h1>New Content</h1></body></html>')
-
-
-    def test_detail_view_does_not_mark_as_seen(self):
-        response = self.client.get(reverse('monitoredpage_detail', args=[self.page.id]))
-        self.page.refresh_from_db()
-
-        self.assertEqual(response.status_code, 200)
-        self.assertTrue(self.page.has_changed)
-
-    def test_detail_view_no_change(self):
-        self.page.has_changed = False
-        self.page.save()
-
-        response = self.client.get(reverse('monitoredpage_detail', args=[self.page.id]))
-
-        self.assertEqual(response.status_code, 200)
-        self.assertNotContains(response, '<h2>Changes:</h2>')
-
-    @patch('monitor.views.requests.get')
-    def test_iframe_content_view_marks_as_seen(self, mock_get):
-        response = self.client.get(reverse('iframe_content', args=[self.page.id]))
-        self.page.refresh_from_db()
-
-        self.assertEqual(response.status_code, 200)
-        self.assertFalse(self.page.has_changed)
-        self.assertContains(response, '<ins>')
-        self.assertContains(response, '<del>')
 
 class MonitoredPageListViewTest(TestCase):
     def setUp(self):
@@ -138,3 +92,61 @@ class MonitoredPageListViewTest(TestCase):
         response = self.client.get(reverse('monitoredpage_list'))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Example')
+
+
+class NewMonitoredPageDetailViewTest(TestCase):
+
+    def setUp(self):
+        self.user = User.objects.create_user('testuser', 'test@example.com', 'password')
+        self.client = Client()
+        self.client.login(username='testuser', password='password')
+        self.page = MonitoredPage.objects.create(
+            user=self.user,
+            name='Example',
+            url='http://example.com',
+            frequency_number=5,
+            frequency_unit='min',
+            has_changed=True
+        )
+
+        # Snapshots
+        self.s1 = self.page.snapshots.create(content='<html><body><h1>Old Content</h1></body></html>')
+        self.s2 = self.page.snapshots.create(content='<html><body><h1>New Content</h1></body></html>')
+        self.s3 = self.page.snapshots.create(content='<html><body><h1>Newest Content</h1></body></html>')
+
+        self.page.last_seen_snapshot = self.s1
+        self.page.save()
+
+    def test_view_displays_form(self):
+        response = self.client.get(reverse('monitoredpage_detail', args=[self.page.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertIsInstance(response.context['form'], MonitoredPageForm)
+
+    def test_view_updates_page(self):
+        new_data = {
+            'name': 'New Example Name',
+            'url': 'http://new-example.com',
+            'frequency_number': 10,
+            'frequency_unit': 'hour'
+        }
+        response = self.client.post(reverse('monitoredpage_detail', args=[self.page.id]), new_data)
+        self.assertEqual(response.status_code, 302)
+        self.page.refresh_from_db()
+        self.assertEqual(self.page.name, 'New Example Name')
+        self.assertEqual(self.page.frequency_unit, 'hour')
+
+    def test_view_shows_inline_diff(self):
+        response = self.client.get(reverse('monitoredpage_detail', args=[self.page.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '<ins>')
+        self.assertContains(response, '<del>')
+
+    def test_last_seen_snapshot_is_distinguished(self):
+        response = self.client.get(reverse('monitoredpage_detail', args=[self.page.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'<li class="last-seen"><a href="?snapshot_id={self.s1.pk}">')
+
+    def test_viewing_specific_snapshot_diff(self):
+        response = self.client.get(reverse('monitoredpage_detail', args=[self.page.id]), {'snapshot_id': self.s2.id})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '<html><body><h1><del>Old</del><ins>New</ins> Content</h1></body></html>')
