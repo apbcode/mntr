@@ -16,4 +16,14 @@
             <p>{{ diff }}</p>
         {% endif %}
     {% endif %}
+
+    <hr>
+    <h2>History</h2>
+    <ul>
+        {% for snapshot in snapshots %}
+        <li><a href="">{{ snapshot.created_at }}</a></li>
+        {% empty %}
+        <li>No snapshots yet.</li>
+        {% endfor %}
+    </ul>
 {% endblock %}

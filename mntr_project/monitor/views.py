@@ -49,7 +49,7 @@ class MonitoredPageDetailView(LoginRequiredMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        # The diff generation and "seen" logic is now handled by the iframe_content_view.
+        context['snapshots'] = self.object.snapshots.order_by('-created_at')
         return context
 
 class NotificationSettingsUpdateView(LoginRequiredMixin, UpdateView):
@@ -74,22 +74,23 @@ def check_now(request, pk):
 @login_required
 def iframe_content_view(request, pk):
     page = get_object_or_404(MonitoredPage, pk=pk, user=request.user)
+    snapshots = page.snapshots.order_by('-created_at')[:2]
 
-    try:
-        response = requests.get(page.url)
-        response.raise_for_status()
-        current_content = response.text
+    diff_content = ""
+    if len(snapshots) > 1:
+        # We have at least two snapshots to compare
+        old_content = snapshots[1].content
+        new_content = snapshots[0].content
 
-        # Generate the diff using the custom template tag logic
         from .templatetags.monitor_extras import htmldiff
-        diff_content = htmldiff(page.last_content, current_content)
+        diff_content = htmldiff(old_content, new_content)
+    elif len(snapshots) == 1:
+        # Only one snapshot, so no diff to show.
+        # Just show the content.
+        diff_content = snapshots[0].content
 
-        # Mark as seen
-        page.last_content = current_content
-        page.has_changed = False
-        page.save()
-
-    except requests.exceptions.RequestException as e:
-        diff_content = f"Error fetching content: {e}"
+    # Mark as seen
+    page.has_changed = False
+    page.save()
 
     return render(request, 'monitor/iframe_content.html', {'diff_content': diff_content})
