@@ -6,6 +6,14 @@ import difflib
 from .notifications import send_notification
 from datetime import timedelta
 
+from celery import shared_task
+from .models import MonitoredPage, PageSnapshot
+import requests
+from django.utils import timezone
+import difflib
+from .notifications import send_notification
+from datetime import timedelta
+
 @shared_task
 def check_page(page_id):
     try:
@@ -13,17 +21,24 @@ def check_page(page_id):
         response = requests.get(page.url)
         response.raise_for_status()
         current_content = response.text
-        if page.last_content:
-            if current_content != page.last_content:
+
+        latest_snapshot = page.snapshots.order_by('-created_at').first()
+
+        if latest_snapshot:
+            if current_content != latest_snapshot.content:
                 page.has_changed = True
+                PageSnapshot.objects.create(monitored_page=page, content=current_content)
                 diff = "".join(difflib.unified_diff(
-                    page.last_content.splitlines(keepends=True),
+                    latest_snapshot.content.splitlines(keepends=True),
                     current_content.splitlines(keepends=True),
                     fromfile='old',
                     tofile='new',
                 ))
                 send_notification(page, diff)
-        page.last_content = current_content
+        else:
+            # First check, create a snapshot
+            PageSnapshot.objects.create(monitored_page=page, content=current_content)
+
         page.last_checked = timezone.now()
         page.save()
         return f'Successfully checked "{page.name}"'

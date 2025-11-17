@@ -34,9 +34,10 @@ class CheckPageTaskTest(TestCase):
             name='Example',
             url='http://example.com',
             frequency_number=5,
-            frequency_unit='min',
-            last_content='<html><body><h1>Old Content</h1></body></html>'
+            frequency_unit='min'
         )
+        # Create an initial snapshot
+        self.page.snapshots.create(content='<html><body><h1>Old Content</h1></body></html>')
         NotificationSettings.objects.create(
             user=self.user,
             notification_type='email',
@@ -55,7 +56,8 @@ class CheckPageTaskTest(TestCase):
 
         self.assertEqual(result, 'Successfully checked "Example"')
         self.assertTrue(self.page.has_changed)
-        self.assertEqual(self.page.last_content, '<html><body><h1>New Content</h1></body></html>')
+        self.assertEqual(self.page.snapshots.count(), 2)
+        self.assertEqual(self.page.snapshots.latest('created_at').content, '<html><body><h1>New Content</h1></body></html>')
 
     @patch('monitor.tasks.requests.get')
     def test_check_page_task_no_change(self, mock_get):
@@ -69,7 +71,7 @@ class CheckPageTaskTest(TestCase):
 
         self.assertEqual(result, 'Successfully checked "Example"')
         self.assertFalse(self.page.has_changed)
-        self.assertEqual(self.page.last_content, '<html><body><h1>Old Content</h1></body></html>')
+        self.assertEqual(self.page.snapshots.count(), 1)
 
 class MonitoredPageDetailViewTest(TestCase):
     def setUp(self):
@@ -82,9 +84,11 @@ class MonitoredPageDetailViewTest(TestCase):
             url='http://example.com',
             frequency_number=5,
             frequency_unit='min',
-            last_content='<html><body><h1>Old Content</h1></body></html>',
             has_changed=True
         )
+        self.page.snapshots.create(content='<html><body><h1>Old Content</h1></body></html>')
+        self.page.snapshots.create(content='<html><body><h1>New Content</h1></body></html>')
+
 
     def test_detail_view_does_not_mark_as_seen(self):
         response = self.client.get(reverse('monitoredpage_detail', args=[self.page.id]))
@@ -104,16 +108,10 @@ class MonitoredPageDetailViewTest(TestCase):
 
     @patch('monitor.views.requests.get')
     def test_iframe_content_view_marks_as_seen(self, mock_get):
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.text = '<html><body><h1>New Content</h1></body></html>'
-        mock_get.return_value = mock_response
-
         response = self.client.get(reverse('iframe_content', args=[self.page.id]))
         self.page.refresh_from_db()
 
         self.assertEqual(response.status_code, 200)
         self.assertFalse(self.page.has_changed)
-        self.assertEqual(self.page.last_content, '<html><body><h1>New Content</h1></body></html>')
         self.assertContains(response, '<ins>')
         self.assertContains(response, '<del>')
