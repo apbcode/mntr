@@ -49,24 +49,60 @@ class MonitoredPageDetailView(LoginRequiredMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        page = self.object
+        page = kwargs.get('object', self.object)
+
+        if 'form' not in context:
+            context['form'] = MonitoredPageForm(instance=page)
 
         all_snapshots = page.snapshots.order_by('-created_at')
-        latest_snapshot = all_snapshots.first()
+        context['all_snapshots'] = all_snapshots
 
+        snapshot_id_to_show = self.request.GET.get('snapshot_id')
+
+        diff_content = ""
         base_snapshot = page.last_seen_snapshot
 
-        intermediary_snapshots = []
-        if base_snapshot and latest_snapshot and base_snapshot != latest_snapshot:
-            intermediary_snapshots = all_snapshots.filter(
-                created_at__gt=base_snapshot.created_at,
-                created_at__lt=latest_snapshot.created_at
-            )
+        snapshot_to_diff_against = None
+        if snapshot_id_to_show:
+            snapshot_to_diff_against = get_object_or_404(all_snapshots, pk=snapshot_id_to_show)
+        elif page.has_changed:
+            snapshot_to_diff_against = all_snapshots.first()
 
-        context['latest_snapshot'] = latest_snapshot
-        context['base_snapshot'] = base_snapshot
-        context['intermediary_snapshots'] = intermediary_snapshots
+        if snapshot_to_diff_against:
+            if base_snapshot and base_snapshot != snapshot_to_diff_against:
+                from .templatetags.monitor_extras import htmldiff
+                diff_content = htmldiff(base_snapshot.content, snapshot_to_diff_against.content)
+            else:
+                diff_content = snapshot_to_diff_against.content
+
+        context['diff_content'] = diff_content
         return context
+
+    def get(self, request, *args, **kwargs):
+        self.object = self.get_object()
+
+        object_for_template = MonitoredPage.objects.get(pk=self.object.pk)
+
+        if self.object.has_changed and not request.GET.get('snapshot_id'):
+            latest_snapshot = self.object.snapshots.order_by('-created_at').first()
+            if latest_snapshot:
+                self.object.last_seen_snapshot = latest_snapshot
+                self.object.has_changed = False
+                self.object.save()
+
+        context = self.get_context_data(object=object_for_template)
+        return self.render_to_response(context)
+
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        form = MonitoredPageForm(request.POST, instance=self.object)
+        if form.is_valid():
+            form.save()
+            return redirect('monitoredpage_detail', pk=self.object.pk)
+
+        context = self.get_context_data()
+        context['form'] = form
+        return self.render_to_response(context)
 
 class NotificationSettingsUpdateView(LoginRequiredMixin, UpdateView):
     model = NotificationSettings
@@ -87,41 +123,3 @@ def check_now(request, pk):
     return redirect('monitoredpage_list')
 
 
-@login_required
-def iframe_content_view(request, pk):
-    page = get_object_or_404(MonitoredPage, pk=pk, user=request.user)
-
-    latest_snapshot = page.snapshots.order_by('-created_at').first()
-    base_snapshot = page.last_seen_snapshot
-
-    diff_content = ""
-    if base_snapshot and latest_snapshot:
-        from .templatetags.monitor_extras import htmldiff
-        diff_content = htmldiff(base_snapshot.content, latest_snapshot.content)
-    elif latest_snapshot:
-        diff_content = latest_snapshot.content
-
-    # Mark the latest snapshot as seen.
-    if latest_snapshot:
-        page.last_seen_snapshot = latest_snapshot
-    page.has_changed = False
-    page.save()
-
-    return render(request, 'monitor/iframe_content.html', {'diff_content': diff_content})
-
-
-@login_required
-def intermediary_snapshot_diff(request, page_pk, snapshot_pk):
-    page = get_object_or_404(MonitoredPage, pk=page_pk, user=request.user)
-
-    intermediary_snapshot = get_object_or_404(page.snapshots, pk=snapshot_pk)
-    base_snapshot = page.last_seen_snapshot
-
-    diff_content = ""
-    if base_snapshot and intermediary_snapshot:
-        from .templatetags.monitor_extras import htmldiff
-        diff_content = htmldiff(base_snapshot.content, intermediary_snapshot.content)
-    elif intermediary_snapshot:
-        diff_content = intermediary_snapshot.content
-
-    return render(request, 'monitor/iframe_content.html', {'diff_content': diff_content})
