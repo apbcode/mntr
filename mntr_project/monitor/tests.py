@@ -115,3 +115,21 @@ class MonitoredPageDetailViewTest(TestCase):
         self.assertFalse(self.page.has_changed)
         self.assertContains(response, '<ins>')
         self.assertContains(response, '<del>')
+
+class MonitoredPageListViewTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user('testuser', 'test@example.com', 'password')
+        self.client = Client()
+        self.client.login(username='testuser', password='password')
+        self.page = MonitoredPage.objects.create(
+            user=self.user,
+            name='Example',
+            url='http://example.com',
+            frequency_number=5,
+            frequency_unit='min'
+        )
+
+    def test_list_view_renders_correctly(self):
+        response = self.client.get(reverse('monitoredpage_list'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Example')
