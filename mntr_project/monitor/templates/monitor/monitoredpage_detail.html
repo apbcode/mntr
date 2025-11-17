@@ -9,21 +9,29 @@
 
     {% if object.has_changed %}
         <h2>Changes:</h2>
-        <iframe src="{% url 'iframe_content' object.pk %}" style="width: 100%; height: 500px; border: 1px solid #ccc;"></iframe>
-    {% elif diff %}
-        <h2>Changes:</h2>
-        {% if is_error %}
-            <p>{{ diff }}</p>
+
+        {% if intermediary_snapshots %}
+        <p>
+            There are {{ intermediary_snapshots|length }} intermediary versions between the version you last saw and the latest one.
+        </p>
         {% endif %}
+
+        <iframe src="{% url 'iframe_content' object.pk %}" style="width: 100%; height: 500px; border: 1px solid #ccc;"></iframe>
     {% endif %}
 
     <hr>
     <h2>History</h2>
     <ul>
-        {% for snapshot in snapshots %}
-        <li><a href="">{{ snapshot.created_at }}</a></li>
-        {% empty %}
-        <li>No snapshots yet.</li>
+        {% if latest_snapshot %}
+            <li><strong>Latest: </strong> {{ latest_snapshot.created_at }}</li>
+        {% endif %}
+
+        {% for snapshot in intermediary_snapshots %}
+        <li><a href="{% url 'intermediary_snapshot_diff' object.pk snapshot.pk %}">{{ snapshot.created_at }}</a></li>
         {% endfor %}
+
+        {% if base_snapshot %}
+            <li><strong>Last seen: </strong>{{ base_snapshot.created_at }}</li>
+        {% endif %}
     </ul>
 {% endblock %}

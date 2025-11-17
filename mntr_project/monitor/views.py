@@ -49,7 +49,23 @@ class MonitoredPageDetailView(LoginRequiredMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['snapshots'] = self.object.snapshots.order_by('-created_at')
+        page = self.object
+
+        all_snapshots = page.snapshots.order_by('-created_at')
+        latest_snapshot = all_snapshots.first()
+
+        base_snapshot = page.last_seen_snapshot
+
+        intermediary_snapshots = []
+        if base_snapshot and latest_snapshot and base_snapshot != latest_snapshot:
+            intermediary_snapshots = all_snapshots.filter(
+                created_at__gt=base_snapshot.created_at,
+                created_at__lt=latest_snapshot.created_at
+            )
+
+        context['latest_snapshot'] = latest_snapshot
+        context['base_snapshot'] = base_snapshot
+        context['intermediary_snapshots'] = intermediary_snapshots
         return context
 
 class NotificationSettingsUpdateView(LoginRequiredMixin, UpdateView):
@@ -74,23 +90,38 @@ def check_now(request, pk):
 @login_required
 def iframe_content_view(request, pk):
     page = get_object_or_404(MonitoredPage, pk=pk, user=request.user)
-    snapshots = page.snapshots.order_by('-created_at')[:2]
+
+    latest_snapshot = page.snapshots.order_by('-created_at').first()
+    base_snapshot = page.last_seen_snapshot
 
     diff_content = ""
-    if len(snapshots) > 1:
-        # We have at least two snapshots to compare
-        old_content = snapshots[1].content
-        new_content = snapshots[0].content
-
+    if base_snapshot and latest_snapshot:
         from .templatetags.monitor_extras import htmldiff
-        diff_content = htmldiff(old_content, new_content)
-    elif len(snapshots) == 1:
-        # Only one snapshot, so no diff to show.
-        # Just show the content.
-        diff_content = snapshots[0].content
+        diff_content = htmldiff(base_snapshot.content, latest_snapshot.content)
+    elif latest_snapshot:
+        diff_content = latest_snapshot.content
 
-    # Mark as seen
+    # Mark the latest snapshot as seen.
+    if latest_snapshot:
+        page.last_seen_snapshot = latest_snapshot
     page.has_changed = False
     page.save()
+
+    return render(request, 'monitor/iframe_content.html', {'diff_content': diff_content})
+
+
+@login_required
+def intermediary_snapshot_diff(request, page_pk, snapshot_pk):
+    page = get_object_or_404(MonitoredPage, pk=page_pk, user=request.user)
+
+    intermediary_snapshot = get_object_or_404(page.snapshots, pk=snapshot_pk)
+    base_snapshot = page.last_seen_snapshot
+
+    diff_content = ""
+    if base_snapshot and intermediary_snapshot:
+        from .templatetags.monitor_extras import htmldiff
+        diff_content = htmldiff(base_snapshot.content, intermediary_snapshot.content)
+    elif intermediary_snapshot:
+        diff_content = intermediary_snapshot.content
 
     return render(request, 'monitor/iframe_content.html', {'diff_content': diff_content})
