@@ -86,7 +86,12 @@ class MonitoredPageDetailViewTest(TestCase):
             frequency_unit='min',
             has_changed=True
         )
-        self.page.snapshots.create(content='<html><body><h1>Old Content</h1></body></html>')
+        # Create the first snapshot and set it as the last seen one.
+        first_snapshot = self.page.snapshots.create(content='<html><body><h1>Old Content</h1></body></html>')
+        self.page.last_seen_snapshot = first_snapshot
+        self.page.save()
+
+        # Create the second snapshot, which represents the new content.
         self.page.snapshots.create(content='<html><body><h1>New Content</h1></body></html>')
 
 

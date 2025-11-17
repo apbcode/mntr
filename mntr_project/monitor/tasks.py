@@ -36,8 +36,9 @@ def check_page(page_id):
                 ))
                 send_notification(page, diff)
         else:
-            # First check, create a snapshot
-            PageSnapshot.objects.create(monitored_page=page, content=current_content)
+            # First check, create the first snapshot and set it as the last seen one.
+            first_snapshot = PageSnapshot.objects.create(monitored_page=page, content=current_content)
+            page.last_seen_snapshot = first_snapshot
 
         page.last_checked = timezone.now()
         page.save()

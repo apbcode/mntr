@@ -19,6 +19,7 @@ class MonitoredPage(models.Model):
     frequency_unit = models.CharField(max_length=10, choices=FREQUENCY_UNITS)
     last_checked = models.DateTimeField(null=True, blank=True)
     has_changed = models.BooleanField(default=False)
+    last_seen_snapshot = models.ForeignKey('PageSnapshot', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
