@@ -138,8 +138,8 @@ class NewMonitoredPageDetailViewTest(TestCase):
     def test_view_shows_inline_diff(self):
         response = self.client.get(reverse('monitoredpage_detail', args=[self.page.id]))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, '<ins>')
-        self.assertContains(response, '<del>')
+        self.assertContains(response, '<iframe srcdoc="')
+        self.assertContains(response, '<ins>Newest</ins> Content</h1></body></html>')
 
     def test_last_seen_snapshot_is_distinguished(self):
         response = self.client.get(reverse('monitoredpage_detail', args=[self.page.id]))
@@ -149,4 +149,5 @@ class NewMonitoredPageDetailViewTest(TestCase):
     def test_viewing_specific_snapshot_diff(self):
         response = self.client.get(reverse('monitoredpage_detail', args=[self.page.id]), {'snapshot_id': self.s2.id})
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '<iframe srcdoc="')
         self.assertContains(response, '<html><body><h1><del>Old</del><ins>New</ins> Content</h1></body></html>')

@@ -12,9 +12,7 @@
 
     {% if diff_content %}
         <h2>Changes:</h2>
-        <div style="border: 1px solid #ccc; padding: 10px;">
-            {{ diff_content|safe }}
-        </div>
+        <iframe srcdoc="{{ diff_content|safe }}" style="width: 100%; height: 500px; border: 1px solid #ccc;"></iframe>
     {% endif %}
 
     <hr>
