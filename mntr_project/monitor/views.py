@@ -14,7 +14,7 @@ class MonitoredPageListView(LoginRequiredMixin, ListView):
     template_name = 'monitor/monitoredpage_list.html'
 
     def get_queryset(self):
-        return MonitoredPage.objects.filter(user=self.request.user)
+        return MonitoredPage.objects.filter(user=self.request.user).order_by('pk')
 
 class MonitoredPageCreateView(LoginRequiredMixin, CreateView):
     model = MonitoredPage
