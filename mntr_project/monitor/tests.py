@@ -1,10 +1,11 @@
 from django.test import TestCase, Client
 from django.contrib.auth.models import User
-from .models import MonitoredPage, NotificationSettings
+from .models import MonitoredPage, NotificationSettings, PageSnapshot
 from .tasks import check_page
 from unittest.mock import patch, MagicMock
 from django.urls import reverse
 from .forms import MonitoredPageForm
+import difflib
 
 class MonitoredPageModelTest(TestCase):
 
@@ -151,3 +152,80 @@ class NewMonitoredPageDetailViewTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, '<iframe srcdoc="')
         self.assertContains(response, '<html><body><h1><del>Old</del><ins>New</ins> Content</h1></body></html>')
+
+    def test_diff_in_view(self):
+        s1 = self.page.snapshots.create(content='<html><body><h1>Old Content</h1></body></html>')
+        s2 = self.page.snapshots.create(content='<html><body><h1>New Content</h1></body></html>')
+        self.page.last_seen_snapshot = s1
+        self.page.save()
+
+        response = self.client.get(reverse('monitoredpage_detail', args=[self.page.id]), {'snapshot_id': s2.id})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '<del>Old</del>')
+        self.assertContains(response, '<ins>New</ins>')
+
+
+class CoreFunctionalityTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            "testuser", "test@example.com", "password"
+        )
+        self.page = MonitoredPage.objects.create(
+            user=self.user,
+            name="Example",
+            url="http://example.com",
+            frequency_number=5,
+            frequency_unit="minute",
+        )
+
+    @patch("monitor.tasks.requests.get")
+    def test_initial_snapshot_creation(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = "<html><body><h1>Initial Content</h1></body></html>"
+        mock_get.return_value = mock_response
+
+        check_page(self.page.id)
+
+        self.page.refresh_from_db()
+        self.assertEqual(self.page.snapshots.count(), 1)
+
+        latest_snapshot = self.page.snapshots.first()
+        self.assertEqual(latest_snapshot.content, mock_response.text)
+        self.assertIsNotNone(self.page.last_checked)
+        self.assertEqual(self.page.last_seen_snapshot, latest_snapshot)
+
+    @patch("monitor.tasks.requests.get")
+    def test_snapshot_on_change(self, mock_get):
+        initial_content = "<html><body><h1>Initial Content</h1></body></html>"
+        self.page.snapshots.create(content=initial_content)
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = "<html><body><h1>Updated Content</h1></body></html>"
+        mock_get.return_value = mock_response
+
+        check_page(self.page.id)
+
+        self.page.refresh_from_db()
+        self.assertEqual(self.page.snapshots.count(), 2)
+        self.assertTrue(self.page.has_changed)
+
+    @patch("monitor.tasks.requests.get")
+    def test_no_snapshot_when_unchanged(self, mock_get):
+        initial_content = "<html><body><h1>Initial Content</h1></body></html>"
+        self.page.snapshots.create(content=initial_content)
+        self.page.has_changed = False
+        self.page.save()
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = initial_content
+        mock_get.return_value = mock_response
+
+        check_page(self.page.id)
+
+        self.page.refresh_from_db()
+        self.assertEqual(self.page.snapshots.count(), 1)
+        self.assertFalse(self.page.has_changed)
