@@ -1,11 +1,15 @@
 from django import template
 from django.utils.safestring import mark_safe
 import difflib
+import logging
+
+logger = logging.getLogger(__name__)
 
 register = template.Library()
 
 @register.filter
 def htmldiff(a, b):
+    logger.info(f"htmldiff called. Length a: {len(a)}, Length b: {len(b)}")
     s = difflib.SequenceMatcher(None, a, b)
     output = []
     for opcode, a_start, a_end, b_start, b_end in s.get_opcodes():

@@ -5,6 +5,9 @@ from django.utils import timezone
 import difflib
 from .notifications import send_notification
 from datetime import timedelta
+import logging
+
+logger = logging.getLogger(__name__)
 
 @shared_task
 def check_page(page_id):
@@ -15,19 +18,23 @@ def check_page(page_id):
         page_id: The ID of the MonitoredPage to check.
     """
     try:
+        logger.info(f"Starting check_page for page_id: {page_id}")
         page = MonitoredPage.objects.get(id=page_id)
 
         # Fetch the current content of the page
         response = requests.get(page.url)
         response.raise_for_status()
         current_content = response.text
+        logger.info(f"Fetched content for page {page_id}. Length: {len(current_content)}")
 
         # Get the latest snapshot of the page
         latest_snapshot = page.snapshots.order_by('-created_at').first()
 
         if latest_snapshot:
+            logger.info(f"Latest snapshot found for page {page_id}. ID: {latest_snapshot.id}, Length: {len(latest_snapshot.content)}")
             # If the content has changed, create a new snapshot and send a notification
             if current_content != latest_snapshot.content:
+                logger.info(f"Content changed for page {page_id}. Creating new snapshot.")
                 page.has_changed = True
                 PageSnapshot.objects.create(monitored_page=page, content=current_content)
 
@@ -39,7 +46,10 @@ def check_page(page_id):
                     tofile='new',
                 ))
                 send_notification(page, diff)
+            else:
+                logger.info(f"Content unchanged for page {page_id}.")
         else:
+            logger.info(f"No previous snapshot for page {page_id}. Creating first snapshot.")
             # If this is the first check, create the first snapshot
             first_snapshot = PageSnapshot.objects.create(monitored_page=page, content=current_content)
             page.last_seen_snapshot = first_snapshot

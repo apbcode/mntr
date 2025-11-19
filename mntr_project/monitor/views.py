@@ -8,6 +8,9 @@ import requests
 from .tasks import check_page
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
+import logging
+
+logger = logging.getLogger(__name__)
 
 class MonitoredPageListView(LoginRequiredMixin, ListView):
     """
@@ -80,6 +83,7 @@ class MonitoredPageDetailView(LoginRequiredMixin, DetailView):
         """
         context = super().get_context_data(**kwargs)
         page = kwargs.get('object', self.object)
+        logger.info(f"Preparing context for MonitoredPageDetailView. Page: {page.name} (ID: {page.id})")
 
         if 'form' not in context:
             context['form'] = MonitoredPageForm(instance=page)
@@ -87,6 +91,7 @@ class MonitoredPageDetailView(LoginRequiredMixin, DetailView):
         # Get all snapshots for the page, ordered by creation date
         all_snapshots = page.snapshots.order_by('-created_at')
         context['all_snapshots'] = all_snapshots
+        logger.info(f"Found {all_snapshots.count()} snapshots for page {page.id}")
 
         snapshot_id_to_show = self.request.GET.get('snapshot_id')
 
@@ -97,15 +102,19 @@ class MonitoredPageDetailView(LoginRequiredMixin, DetailView):
         snapshot_to_diff_against = None
         if snapshot_id_to_show:
             snapshot_to_diff_against = get_object_or_404(all_snapshots, pk=snapshot_id_to_show)
+            logger.info(f"User requested specific snapshot ID: {snapshot_id_to_show}")
         elif page.has_changed:
             snapshot_to_diff_against = all_snapshots.first()
+            logger.info(f"Page has changed. Defaulting to latest snapshot ID: {snapshot_to_diff_against.id if snapshot_to_diff_against else 'None'}")
 
         # Generate the diff content
         if snapshot_to_diff_against:
             if base_snapshot and base_snapshot != snapshot_to_diff_against:
+                logger.info(f"Calculating diff between Base Snapshot {base_snapshot.id} and Target Snapshot {snapshot_to_diff_against.id}")
                 from .templatetags.monitor_extras import htmldiff
                 diff_content = htmldiff(base_snapshot.content, snapshot_to_diff_against.content)
             else:
+                logger.info("No base snapshot or base snapshot is same as target. Showing target content directly.")
                 diff_content = snapshot_to_diff_against.content
 
         context['diff_content'] = diff_content
