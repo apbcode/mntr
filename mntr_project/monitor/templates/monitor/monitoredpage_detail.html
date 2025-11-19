@@ -2,26 +2,52 @@
 {% load monitor_extras %}
 
 {% block content %}
-    <form method="post">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit">Save</button>
-    </form>
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Save</button>
+</form>
 
-    <hr>
+<hr>
 
-    {% if diff_content %}
-        <h2>Changes:</h2>
-        <iframe srcdoc="{{ diff_content|safe }}" style="width: 100%; height: 500px; border: 1px solid #ccc;" sandbox="allow-scripts allow-same-origin"></iframe>
-    {% endif %}
+{% if diff_content %}
+<h2>Changes:</h2>
+<iframe id="diff-iframe" style="width: 100%; height: 500px; border: 1px solid #ccc;"
+    sandbox="allow-scripts allow-same-origin"></iframe>
+<script>
+    (function () {
+        try {
+            var iframe = document.getElementById('diff-iframe');
+            var doc = iframe.contentWindow.document;
+            // Use double quotes and escapejs. escapejs handles quotes and newlines.
+            var content = "{{ diff_content|escapejs }}";
+            var baseUrl = "{{ object.url }}";
 
-    <hr>
-    <h2>History</h2>
-    <ul>
-        {% for snapshot in all_snapshots %}
-            <li {% if snapshot.pk == object.last_seen_snapshot.pk %}class="last-seen"{% endif %}><a href="?snapshot_id={{ snapshot.pk }}">{{ snapshot.created_at|date:"Y-m-d H:i" }}</a></li>
-        {% empty %}
-            <li>No snapshots yet.</li>
-        {% endfor %}
-    </ul>
+            console.log("Injecting content into iframe. Length:", content.length);
+
+            doc.open();
+            doc.write('<!DOCTYPE html><html><head><base href="' + baseUrl + '">');
+            doc.write('<style>ins { background-color: #e6ffec; text-decoration: none; } del { background-color: #ffebe9; text-decoration: line-through; }</style>');
+            doc.write('</head><body>');
+            doc.write(content);
+            doc.write('</body></html>');
+            doc.close();
+        } catch (e) {
+            console.error("Error injecting iframe content:", e);
+            document.getElementById('diff-iframe').before(document.createTextNode("Error loading diff: " + e.message));
+        }
+    })();
+</script>
+{% endif %}
+
+<hr>
+<h2>History</h2>
+<ul>
+    {% for snapshot in all_snapshots %}
+    <li {% if snapshot.pk == object.last_seen_snapshot.pk %}class="last-seen" {% endif %}><a
+            href="?snapshot_id={{ snapshot.pk }}">{{ snapshot.created_at|date:"Y-m-d H:i" }}</a></li>
+    {% empty %}
+    <li>No snapshots yet.</li>
+    {% endfor %}
+</ul>
 {% endblock %}
